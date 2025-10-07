@@ -1,0 +1,1 @@
+{"version":3,"file":"simple-bot1.d.ts","sourceRoot":"","sources":["../../src/simple-bot1.ts"],"names":[],"mappings":"AAGA,qBAAa,sBAAsB;IACjC,OAAO,CAAC,GAAG,CAAW;IACtB,OAAO,CAAC,UAAU,CAAa;IAC/B,OAAO,CAAC,WAAW,CAAS;gBAEhB,KAAK,EAAE,MAAM,EAAE,UAAU,EAAE,MAAM,EAAE,WAAW,EAAE,MAAM;IAOlE,OAAO,CAAC,aAAa;YAwFP,iBAAiB;YAsBjB,iBAAiB;YAiCjB,oBAAoB;IAM3B,MAAM;IAKN,IAAI;CAGZ"}
