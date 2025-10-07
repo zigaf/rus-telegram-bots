@@ -1,4 +1,5 @@
 const { Telegraf } = require('telegraf');
+const express = require('express');
 require('dotenv').config();
 
 // Bot 1 - Article Search Bot
@@ -223,6 +224,35 @@ process.on('SIGTERM', () => {
     console.error('Error stopping bots:', error);
   }
   process.exit(0);
+});
+
+// Simple HTTP server for healthcheck
+const app = express();
+const PORT = process.env.PORT || 3002;
+
+app.get('/health', (req, res) => {
+  res.json({ 
+    status: 'OK', 
+    timestamp: new Date().toISOString(),
+    bots: {
+      bot1: bot1 ? 'running' : 'stopped',
+      bot2: bot2 ? 'running' : 'stopped'
+    }
+  });
+});
+
+app.get('/', (req, res) => {
+  res.json({ 
+    message: 'Telegram Bots for Dr. Ruslana Moskalenko',
+    status: 'running',
+    bots: ['@moskalenko_helper_bot', '@ruslana_medical_bot']
+  });
+});
+
+// Start HTTP server
+app.listen(PORT, '0.0.0.0', () => {
+  console.log(`🌐 Health check server running on port ${PORT}`);
+  console.log(`🔗 Health check: http://0.0.0.0:${PORT}/health`);
 });
 
 // Handle uncaught exceptions

@@ -5,7 +5,7 @@
   "deploy": {
     "startCommand": "node start-bots.js",
     "healthcheckPath": "/health",
-    "healthcheckTimeout": 300,
+    "healthcheckTimeout": 60,
     "restartPolicyType": "ON_FAILURE",
     "restartPolicyMaxRetries": 3
   }
