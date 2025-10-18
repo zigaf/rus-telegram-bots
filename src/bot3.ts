@@ -1,5 +1,7 @@
 import { Telegraf, Markup, Context } from 'telegraf';
 import { Booking } from './types';
+import * as fs from 'fs';
+import * as path from 'path';
 
 interface SessionData {
   step?: 'date' | 'time' | 'people';
@@ -10,11 +12,16 @@ interface SessionData {
 
 export class BookingBot {
   private bot: Telegraf;
+  // ВНИМАНИЕ: Брони хранятся в памяти! При перезапуске бота они пропадут.
+  // Для продакшена нужно использовать базу данных (SQLite, PostgreSQL, MongoDB)
   private bookings: Map<string, Booking[]> = new Map();
   private sessions: Map<number, SessionData> = new Map();
+  private dataFile: string;
 
   constructor(token: string) {
     this.bot = new Telegraf(token);
+    this.dataFile = path.join(__dirname, '..', 'bookings.json');
+    this.loadBookings();
     this.setupHandlers();
   }
 
@@ -62,6 +69,28 @@ export class BookingBot {
     });
 
     // Text messages - теперь не нужны, все через кнопки
+  }
+
+  private loadBookings() {
+    try {
+      if (fs.existsSync(this.dataFile)) {
+        const data = fs.readFileSync(this.dataFile, 'utf8');
+        const bookingsData = JSON.parse(data);
+        this.bookings = new Map(Object.entries(bookingsData));
+        console.log(`📁 Загружено ${this.bookings.size} пользователей с бронями`);
+      }
+    } catch (error) {
+      console.error('❌ Ошибка загрузки броней:', error);
+    }
+  }
+
+  private saveBookings() {
+    try {
+      const bookingsData = Object.fromEntries(this.bookings);
+      fs.writeFileSync(this.dataFile, JSON.stringify(bookingsData, null, 2));
+    } catch (error) {
+      console.error('❌ Ошибка сохранения броней:', error);
+    }
   }
 
   private async showMainMenu(ctx: any) {
@@ -167,6 +196,7 @@ export class BookingBot {
       session.tempBooking!.date = date;
       session.selectedDate = date;
       session.step = 'time';
+      await ctx.answerCbQuery(`✅ Выбрана дата: ${date}`);
       await this.showTimeSelection(ctx);
     }
   }
@@ -209,6 +239,7 @@ export class BookingBot {
       session.tempBooking!.time = time;
       session.selectedTime = time;
       session.step = 'people';
+      await ctx.answerCbQuery(`✅ Выбрано время: ${time}`);
       await this.showPeopleSelection(ctx);
     }
   }
@@ -243,6 +274,7 @@ export class BookingBot {
     
     if (session) {
       session.tempBooking!.numberOfPeople = people;
+      await ctx.answerCbQuery(`✅ Выбрано: ${people} человек`);
       await this.completeBooking(ctx, session);
     }
   }
@@ -261,6 +293,9 @@ export class BookingBot {
     const userBookings = this.bookings.get(userId.toString()) || [];
     userBookings.push(booking);
     this.bookings.set(userId.toString(), userBookings);
+    
+    // Сохраняем в файл
+    this.saveBookings();
 
     // Очищаем сессию
     this.sessions.delete(userId);
@@ -275,7 +310,7 @@ export class BookingBot {
       `\n🆔 Номер брони: ${booking.id}\n\n` +
       '💡 Вы можете просмотреть или отменить бронь в главном меню';
 
-    await ctx.reply(confirmMessage, {
+    await ctx.editMessageText(confirmMessage, {
       parse_mode: 'Markdown',
       reply_markup: Markup.inlineKeyboard([
         [Markup.button.callback('🏠 Главное меню', 'back_to_main')]
@@ -328,6 +363,9 @@ export class BookingBot {
     if (booking) {
       booking.status = 'cancelled';
       this.bookings.set(userId.toString(), userBookings);
+      
+      // Сохраняем в файл
+      this.saveBookings();
 
       await ctx.answerCbQuery('✅ Бронь отменена');
       await this.showBookings(ctx);
