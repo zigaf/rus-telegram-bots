@@ -4,6 +4,8 @@ import { Booking } from './types';
 interface SessionData {
   step?: 'date' | 'time' | 'people' | 'phone';
   tempBooking?: Partial<Booking>;
+  selectedDate?: string;
+  selectedTime?: string;
 }
 
 export class BookingBot {
@@ -46,6 +48,24 @@ export class BookingBot {
       if (session) {
         await this.completeBooking(ctx, session);
       }
+    });
+
+    // Обработчики для выбора даты
+    this.bot.action(/^select_date_(.+)$/, async (ctx) => {
+      const date = ctx.match[1];
+      await this.handleDateSelection(ctx, date);
+    });
+
+    // Обработчики для выбора времени
+    this.bot.action(/^select_time_(.+)$/, async (ctx) => {
+      const time = ctx.match[1];
+      await this.handleTimeSelection(ctx, time);
+    });
+
+    // Обработчики для выбора количества человек
+    this.bot.action(/^select_people_(\d+)$/, async (ctx) => {
+      const people = parseInt(ctx.match[1]);
+      await this.handlePeopleSelection(ctx, people);
     });
 
     // Text messages - обработка ввода данных для бронирования
@@ -115,13 +135,145 @@ export class BookingBot {
       }
     });
 
+    await this.showDateSelection(ctx);
+  }
+
+  private async showDateSelection(ctx: any) {
+    const today = new Date();
+    const dates = [];
+    
+    // Генерируем даты на следующие 14 дней
+    for (let i = 1; i <= 14; i++) {
+      const date = new Date(today);
+      date.setDate(today.getDate() + i);
+      const dateStr = date.toLocaleDateString('ru-RU', { 
+        day: '2-digit', 
+        month: '2-digit', 
+        year: 'numeric' 
+      });
+      dates.push(dateStr);
+    }
+
+    const keyboard = [];
+    for (let i = 0; i < dates.length; i += 2) {
+      const row = [];
+      row.push(Markup.button.callback(dates[i], `select_date_${dates[i]}`));
+      if (dates[i + 1]) {
+        row.push(Markup.button.callback(dates[i + 1], `select_date_${dates[i + 1]}`));
+      }
+      keyboard.push(row);
+    }
+
+    keyboard.push([Markup.button.callback('❌ Отмена', 'back_to_main')]);
+
     await ctx.editMessageText(
-      '📅 *Шаг 1 из 4: Дата бронирования*\n\n' +
-      'Введите дату в формате ДД.ММ.ГГГГ\n' +
-      'Например: 25.10.2025',
+      '📅 *Шаг 1 из 4: Выберите дату*\n\n' +
+      'Выберите дату для бронирования:',
+      {
+        parse_mode: 'Markdown',
+        reply_markup: { inline_keyboard: keyboard }
+      }
+    );
+  }
+
+  private async handleDateSelection(ctx: any, date: string) {
+    const userId = ctx.from.id;
+    const session = this.sessions.get(userId);
+    
+    if (session) {
+      session.tempBooking!.date = date;
+      session.selectedDate = date;
+      session.step = 'time';
+      await this.showTimeSelection(ctx);
+    }
+  }
+
+  private async showTimeSelection(ctx: any) {
+    const times = [
+      '09:00', '09:30', '10:00', '10:30', '11:00', '11:30',
+      '12:00', '12:30', '13:00', '13:30', '14:00', '14:30',
+      '15:00', '15:30', '16:00', '16:30', '17:00', '17:30',
+      '18:00', '18:30', '19:00', '19:30', '20:00', '20:30',
+      '21:00', '21:30', '22:00'
+    ];
+
+    const keyboard = [];
+    for (let i = 0; i < times.length; i += 3) {
+      const row = [];
+      row.push(Markup.button.callback(times[i], `select_time_${times[i]}`));
+      if (times[i + 1]) row.push(Markup.button.callback(times[i + 1], `select_time_${times[i + 1]}`));
+      if (times[i + 2]) row.push(Markup.button.callback(times[i + 2], `select_time_${times[i + 2]}`));
+      keyboard.push(row);
+    }
+
+    keyboard.push([Markup.button.callback('❌ Отмена', 'back_to_main')]);
+
+    await ctx.editMessageText(
+      '🕐 *Шаг 2 из 4: Выберите время*\n\n' +
+      'Выберите время для бронирования:',
+      {
+        parse_mode: 'Markdown',
+        reply_markup: { inline_keyboard: keyboard }
+      }
+    );
+  }
+
+  private async handleTimeSelection(ctx: any, time: string) {
+    const userId = ctx.from.id;
+    const session = this.sessions.get(userId);
+    
+    if (session) {
+      session.tempBooking!.time = time;
+      session.selectedTime = time;
+      session.step = 'people';
+      await this.showPeopleSelection(ctx);
+    }
+  }
+
+  private async showPeopleSelection(ctx: any) {
+    const peopleCounts = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 12, 15, 20];
+
+    const keyboard = [];
+    for (let i = 0; i < peopleCounts.length; i += 3) {
+      const row = [];
+      row.push(Markup.button.callback(`${peopleCounts[i]} чел.`, `select_people_${peopleCounts[i]}`));
+      if (peopleCounts[i + 1]) row.push(Markup.button.callback(`${peopleCounts[i + 1]} чел.`, `select_people_${peopleCounts[i + 1]}`));
+      if (peopleCounts[i + 2]) row.push(Markup.button.callback(`${peopleCounts[i + 2]} чел.`, `select_people_${peopleCounts[i + 2]}`));
+      keyboard.push(row);
+    }
+
+    keyboard.push([Markup.button.callback('❌ Отмена', 'back_to_main')]);
+
+    await ctx.editMessageText(
+      '👥 *Шаг 3 из 4: Количество человек*\n\n' +
+      'Выберите количество человек:',
+      {
+        parse_mode: 'Markdown',
+        reply_markup: { inline_keyboard: keyboard }
+      }
+    );
+  }
+
+  private async handlePeopleSelection(ctx: any, people: number) {
+    const userId = ctx.from.id;
+    const session = this.sessions.get(userId);
+    
+    if (session) {
+      session.tempBooking!.numberOfPeople = people;
+      session.step = 'phone';
+      await this.showPhoneInput(ctx);
+    }
+  }
+
+  private async showPhoneInput(ctx: any) {
+    await ctx.editMessageText(
+      '📱 *Шаг 4 из 4: Контактный телефон*\n\n' +
+      'Введите ваш номер телефона или нажмите "Пропустить":\n' +
+      'Например: +380123456789',
       {
         parse_mode: 'Markdown',
         reply_markup: Markup.inlineKeyboard([
+          [Markup.button.callback('⏭ Пропустить', 'skip_phone')],
           [Markup.button.callback('❌ Отмена', 'back_to_main')]
         ])
       }
@@ -132,80 +284,16 @@ export class BookingBot {
     const userId = ctx.from.id;
     const text = ctx.message.text.trim();
 
-    switch (session.step) {
-      case 'date':
-        if (this.validateDate(text)) {
-          session.tempBooking!.date = text;
-          session.step = 'time';
-          await ctx.reply(
-            '🕐 *Шаг 2 из 4: Время бронирования*\n\n' +
-            'Введите время в формате ЧЧ:ММ\n' +
-            'Например: 19:30',
-            {
-              parse_mode: 'Markdown',
-              reply_markup: Markup.inlineKeyboard([
-                [Markup.button.callback('❌ Отмена', 'back_to_main')]
-              ])
-            }
-          );
-        } else {
-          await ctx.reply('❌ Неверный формат даты. Используйте формат ДД.ММ.ГГГГ (например: 25.10.2025)');
-        }
-        break;
-
-      case 'time':
-        if (this.validateTime(text)) {
-          session.tempBooking!.time = text;
-          session.step = 'people';
-          await ctx.reply(
-            '👥 *Шаг 3 из 4: Количество человек*\n\n' +
-            'Введите количество человек (от 1 до 20)\n' +
-            'Например: 4',
-            {
-              parse_mode: 'Markdown',
-              reply_markup: Markup.inlineKeyboard([
-                [Markup.button.callback('❌ Отмена', 'back_to_main')]
-              ])
-            }
-          );
-        } else {
-          await ctx.reply('❌ Неверный формат времени. Используйте формат ЧЧ:ММ (например: 19:30)');
-        }
-        break;
-
-      case 'people':
-        const numberOfPeople = parseInt(text);
-        if (!isNaN(numberOfPeople) && numberOfPeople >= 1 && numberOfPeople <= 20) {
-          session.tempBooking!.numberOfPeople = numberOfPeople;
-          session.step = 'phone';
-          await ctx.reply(
-            '📱 *Шаг 4 из 4: Контактный телефон*\n\n' +
-            'Введите ваш номер телефона\n' +
-            'Например: +380123456789\n\n' +
-            'Или введите "пропустить" если не хотите указывать',
-            {
-              parse_mode: 'Markdown',
-              reply_markup: Markup.inlineKeyboard([
-                [Markup.button.callback('⏭ Пропустить', 'skip_phone')],
-                [Markup.button.callback('❌ Отмена', 'back_to_main')]
-              ])
-            }
-          );
-        } else {
-          await ctx.reply('❌ Введите корректное число от 1 до 20');
-        }
-        break;
-
-      case 'phone':
-        if (text.toLowerCase() === 'пропустить') {
-          await this.completeBooking(ctx, session);
-        } else if (this.validatePhone(text)) {
-          session.tempBooking!.phoneNumber = text;
-          await this.completeBooking(ctx, session);
-        } else {
-          await ctx.reply('❌ Неверный формат телефона. Введите номер в формате +380XXXXXXXXX или "пропустить"');
-        }
-        break;
+    // Теперь обрабатываем только ввод телефона
+    if (session.step === 'phone') {
+      if (text.toLowerCase() === 'пропустить') {
+        await this.completeBooking(ctx, session);
+      } else if (this.validatePhone(text)) {
+        session.tempBooking!.phoneNumber = text;
+        await this.completeBooking(ctx, session);
+      } else {
+        await ctx.reply('❌ Неверный формат телефона. Введите номер в формате +380XXXXXXXXX или "пропустить"');
+      }
     }
   }
 
@@ -359,4 +447,37 @@ export class BookingBot {
   public stop() {
     this.bot.stop();
   }
+}
+
+// Запуск бота, если файл запущен напрямую
+if (require.main === module) {
+  import('dotenv').then(dotenv => {
+    dotenv.config();
+    
+    const BOT3_TOKEN = process.env.BOT3_TOKEN || '8455993287:AAEq_qVaOke4wzaQaxqXVuAmvjMixLEC-Fk';
+    
+    if (!BOT3_TOKEN) {
+      console.error('❌ BOT3_TOKEN is required');
+      process.exit(1);
+    }
+    
+    const bot = new BookingBot(BOT3_TOKEN);
+    bot.launch();
+    
+    console.log('🚀 Bot3 (Table Booking) started successfully!');
+    console.log(`🍽 Bot 3 (Table Booking): @table_booking_bot`);
+    
+    // Graceful shutdown
+    process.on('SIGINT', () => {
+      console.log('\n🛑 Shutting down Bot3...');
+      bot.stop();
+      process.exit(0);
+    });
+    
+    process.on('SIGTERM', () => {
+      console.log('\n🛑 Shutting down Bot3...');
+      bot.stop();
+      process.exit(0);
+    });
+  });
 }
