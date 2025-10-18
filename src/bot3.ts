@@ -2,7 +2,7 @@ import { Telegraf, Markup, Context } from 'telegraf';
 import { Booking } from './types';
 
 interface SessionData {
-  step?: 'date' | 'time' | 'people' | 'phone';
+  step?: 'date' | 'time' | 'people';
   tempBooking?: Partial<Booking>;
   selectedDate?: string;
   selectedTime?: string;
@@ -42,13 +42,6 @@ export class BookingBot {
       await this.showMainMenu(ctx);
     });
 
-    this.bot.action('skip_phone', async (ctx) => {
-      const userId = ctx.from.id;
-      const session = this.sessions.get(userId);
-      if (session) {
-        await this.completeBooking(ctx, session);
-      }
-    });
 
     // Обработчики для выбора даты
     this.bot.action(/^select_date_(.+)$/, async (ctx) => {
@@ -68,17 +61,7 @@ export class BookingBot {
       await this.handlePeopleSelection(ctx, people);
     });
 
-    // Text messages - обработка ввода данных для бронирования
-    this.bot.on('text', async (ctx) => {
-      const userId = ctx.from.id;
-      const session = this.sessions.get(userId);
-
-      if (!session || !session.step) {
-        return;
-      }
-
-      await this.handleBookingInput(ctx, session);
-    });
+    // Text messages - теперь не нужны, все через кнопки
   }
 
   private async showMainMenu(ctx: any) {
@@ -209,7 +192,7 @@ export class BookingBot {
     keyboard.push([Markup.button.callback('❌ Отмена', 'back_to_main')]);
 
     await ctx.editMessageText(
-      '🕐 *Шаг 2 из 4: Выберите время*\n\n' +
+      '🕐 *Шаг 2 из 3: Выберите время*\n\n' +
       'Выберите время для бронирования:',
       {
         parse_mode: 'Markdown',
@@ -245,7 +228,7 @@ export class BookingBot {
     keyboard.push([Markup.button.callback('❌ Отмена', 'back_to_main')]);
 
     await ctx.editMessageText(
-      '👥 *Шаг 3 из 4: Количество человек*\n\n' +
+      '👥 *Шаг 3 из 3: Количество человек*\n\n' +
       'Выберите количество человек:',
       {
         parse_mode: 'Markdown',
@@ -260,42 +243,10 @@ export class BookingBot {
     
     if (session) {
       session.tempBooking!.numberOfPeople = people;
-      session.step = 'phone';
-      await this.showPhoneInput(ctx);
+      await this.completeBooking(ctx, session);
     }
   }
 
-  private async showPhoneInput(ctx: any) {
-    await ctx.editMessageText(
-      '📱 *Шаг 4 из 4: Контактный телефон*\n\n' +
-      'Введите ваш номер телефона или нажмите "Пропустить":\n' +
-      'Например: +380123456789',
-      {
-        parse_mode: 'Markdown',
-        reply_markup: Markup.inlineKeyboard([
-          [Markup.button.callback('⏭ Пропустить', 'skip_phone')],
-          [Markup.button.callback('❌ Отмена', 'back_to_main')]
-        ])
-      }
-    );
-  }
-
-  private async handleBookingInput(ctx: any, session: SessionData) {
-    const userId = ctx.from.id;
-    const text = ctx.message.text.trim();
-
-    // Теперь обрабатываем только ввод телефона
-    if (session.step === 'phone') {
-      if (text.toLowerCase() === 'пропустить') {
-        await this.completeBooking(ctx, session);
-      } else if (this.validatePhone(text)) {
-        session.tempBooking!.phoneNumber = text;
-        await this.completeBooking(ctx, session);
-      } else {
-        await ctx.reply('❌ Неверный формат телефона. Введите номер в формате +380XXXXXXXXX или "пропустить"');
-      }
-    }
-  }
 
   private async completeBooking(ctx: any, session: SessionData) {
     const userId = ctx.from.id;
@@ -321,7 +272,6 @@ export class BookingBot {
       `📅 Дата: ${booking.date}\n` +
       `🕐 Время: ${booking.time}\n` +
       `👥 Количество человек: ${booking.numberOfPeople}\n` +
-      (booking.phoneNumber ? `📱 Телефон: ${booking.phoneNumber}\n` : '') +
       `\n🆔 Номер брони: ${booking.id}\n\n` +
       '💡 Вы можете просмотреть или отменить бронь в главном меню';
 
@@ -354,9 +304,6 @@ export class BookingBot {
       message += `${index + 1}. *Бронь #${booking.id}*\n`;
       message += `📅 ${booking.date} в ${booking.time}\n`;
       message += `👥 ${booking.numberOfPeople} человек\n`;
-      if (booking.phoneNumber) {
-        message += `📱 ${booking.phoneNumber}\n`;
-      }
       message += `📊 Статус: ${this.getStatusEmoji(booking.status)} ${this.getStatusText(booking.status)}\n\n`;
 
       if (booking.status === 'confirmed' || booking.status === 'pending') {
@@ -412,10 +359,6 @@ export class BookingBot {
     return regex.test(time);
   }
 
-  private validatePhone(phone: string): boolean {
-    const regex = /^\+?[\d\s\-\(\)]{10,}$/;
-    return regex.test(phone);
-  }
 
   private generateBookingId(): string {
     return Date.now().toString(36) + Math.random().toString(36).substr(2, 5);
