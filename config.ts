@@ -8,6 +8,10 @@ export const BOT_CONFIG = {
   BOT2_TOKEN: '8441781301:AAGJEVkSSvBLR-j7qV2LskYnSBBSprOGQ5E',
   BOT2_USERNAME: 'ruslana_medical_bot',
 
+  // Bot 3 - Бронирование столов
+  BOT3_TOKEN: process.env.BOT3_TOKEN || '8455993287:AAEq_qVaOke4wzaQaxqXVuAmvjMixLEC-Fk',
+  BOT3_USERNAME: 'table_booking_bot',
+
   // Канал лікаря
   DOCTOR_CHANNEL_ID: '-1003176317968',
   DOCTOR_CHAT_ID: '-1003176317968',

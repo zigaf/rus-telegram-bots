@@ -42,3 +42,18 @@ export interface SearchResult {
   total: number;
   query: string;
 }
+
+export interface Booking {
+  id: string;
+  userId: number;
+  username?: string;
+  firstName?: string;
+  lastName?: string;
+  date: string;
+  time: string;
+  numberOfPeople: number;
+  phoneNumber?: string;
+  status: 'pending' | 'confirmed' | 'cancelled';
+  createdAt: Date;
+  notes?: string;
+}

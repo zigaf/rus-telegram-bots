@@ -8,7 +8,8 @@
     "start": "node dist/index.js",
     "dev": "ts-node-dev --respawn --transpile-only src/index.ts",
     "bot1": "node dist/bot1.js",
-    "bot2": "node dist/bot2.js"
+    "bot2": "node dist/bot2.js",
+    "bot3": "ts-node src/bot3.ts"
   },
   "dependencies": {
     "axios": "^1.6.2",
